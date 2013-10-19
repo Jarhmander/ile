@@ -3,6 +3,7 @@
 #
 
 CC      := gcc
+LD      := gcc
 CFLAGS  += -O2
 LDFLAGS += -lm
 INCLUDES+= -Ilua-5.2.2/src/ \
@@ -64,7 +65,7 @@ VPATH  += $(LUADIR):$(LPEGDIR):.
 
 ile : $(OBJS)
 	@echo Linking...
-	$(CC) -o ile $(LDFLAGS) $(OBJS)
+	$(LD) -o ile $(LDFLAGS) $(OBJS)
 
 $(OBJDIR)/%.o : %.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDES)
