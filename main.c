@@ -12,25 +12,25 @@ const char *const PRGNAME = "ILE";
 
 int endcollect = 0;
 
-int argpos = 1;
+int argpos = 0;
 
 const char *scriptname = "main.lua";
 
 static int compile = 0;
-static const char *outname;
+static const char *outname = "a.out";
 static int helpreq = 0;
 
 static void help(void)
 {
     printf(
 "ILE, the Indepedent Lua Executable -- with embedded LPeg\n"
-"");            
+"");
 }
 
 static void error_opt(const char *str, size_t len)
 {
     printf("E: Unrecognized option '");
-    if (len) 
+    if (len)
         printf("%.*s", (int)len, str);
     else
         printf("%s", str);
@@ -47,6 +47,10 @@ static int short_opt(int c, char const *rest, int pos)
     case 'f':
         scriptname = rest;
         argpos = pos < 0 ? ~pos : pos;
+        return 1;
+    case 'c':
+        compile = 1;
+        outname = rest;
         return 1;
     default:
         {
@@ -70,12 +74,23 @@ static int long_opt(char const *str, size_t len, char const *arg, int pos)
         argpos = pos < 0 ? ~pos : pos;
         return 1;
     }
+    if (!strncmp("compile", str, len))
+    {
+        compile = 1;
+        outname = arg;
+        return 1;
+    }
     error_opt(str, len);
     return -1;
 }
 
 static int not_opt(char const *str, int pos)
 {
+    if (compile)
+    {
+        printf("E: Unexpected argument '%s'\n", str);
+        return -1;
+    }
     if (!endcollect)
     {
         argpos = pos - 1;
@@ -84,7 +99,7 @@ static int not_opt(char const *str, int pos)
     return 0;
 }
 
-static int getargs(lua_State *L, const char **argv, int n) 
+static int getargs(lua_State *L, const char **argv, int n)
 {
     int narg;
     int i;
@@ -142,8 +157,9 @@ static int handle_options(int argc, char const *argv[])
                         if (code == 0)
                         {
                             // The option wasn't expecting an arg.
-                            printf("E: ARG!\n");
-                            code = -1; 
+                            printf("E: Unexpected argument to '%.*s'.\n",
+                                                (int)loc, opt);
+                            code = -1;
                         }
                     }
                     else
@@ -164,7 +180,7 @@ static int handle_options(int argc, char const *argv[])
                 for (j=1; opt[j]; ++j)
                 {
                     const char *arg = opt+j+1;
-                    if (!*arg) 
+                    if (!*arg)
                     {
                         code = short_opt(opt[j], argv[i+1], -i);
                         if (code==-1) break;
@@ -203,36 +219,33 @@ int main(int argc, char const *argv[])
     luaopen_lpeg(L);
     lua_setglobal(L, "lpeg");
     lua_gc(L, LUA_GCRESTART, 0);
+    char *myself = 0;
+    int myself_size = 0;
     {
-        FILE *f = fopen(argv[0],"r");
+        FILE *f = fopen(argv[0],"rb");
         if (!f)
         {
             printf("fatal: could not open '%s'\n", argv[0]);
         }
         else
         {
-            union {
-                char buf[8];
-                struct {
-                    uint32_t _;
-                    uint32_t offset;
-                };
-            } d = {0};
-            fseek(f, -8, SEEK_END);
-            fread(d.buf, sizeof(d.buf), 1, f);
-            if (!strncmp(d.buf, "ILES", 4))
+            fseek(f, 0, SEEK_END);
+            myself_size = ftell(f);
+            myself = malloc(myself_size);
+            rewind(f);
+            fread(myself, 1, myself_size, f);
+            if (!strncmp(myself+myself_size-8, "ILES", 4))
             {
                 // This is a compiled executable
-                fseek(f, -d.offset-8, SEEK_END);
-                char *s = malloc(d.offset);
-                fread(s, sizeof(d.offset), 1, f);
-                int c = luaL_loadstring(L, s);
-                free(s);
+                myself[myself_size-8] = 0; // terminate it
+                int codesize = *(int *)(myself+myself_size-4);
+                int c = luaL_loadstring(L, myself+myself_size-codesize-8);
+                free(myself);
                 if (!lerror(L, c))
                 {
                     getargs(L, argv, 0);
                     lua_setglobal(L, "arg");
-                    c = lua_pcall(L, argc, 1, 0);
+                    c = lua_pcall(L, argc-1, 1, 0);
                     if (lerror(L, c))
                     {
                         retcode = -1;
@@ -256,11 +269,44 @@ int main(int argc, char const *argv[])
                     else if (compile)
                     {
                         // Do not execute. Compile instead.
+                        char buf[64];
+                        FILE *o = fopen(outname,"wb");
+                        if (!o)
+                        {
+                            printf("fatal: could not open '%s'\n", outname);
+                        }
+                        else
+                        {
+                            int n;
+                            fwrite(myself, 1, myself_size, o);
+                            free(myself);
+                            myself = 0;
+                            f = freopen(scriptname, "rb", f);
+                            if (!f)
+                            {
+                                printf("fatal: could not open '%s'\n", scriptname);
+                            }
+                            while (n = fread(buf, 1, sizeof(buf), f))
+                            {
+                                fwrite(buf, 1, n, o);
+                            }
+                            fwrite("ILES", 1, 4, o);
+                            fseek(f, 0, SEEK_END);
+                            {
+                                long i = ftell(f);
+                                fwrite(&i, 1, 4, o);
+                            }
+                            fclose(o);
+                            sprintf(buf, "chmod +x '%s'", outname);
+                            system(buf);
+                        }
                     }
                     else
                     {
                         // Execute script
                         int c = luaL_loadfile(L, scriptname);
+                        free(myself);
+                        myself = 0;
 
                         if (!lerror(L, c))
                         {
@@ -277,10 +323,13 @@ int main(int argc, char const *argv[])
                             }
                         }
                     }
+                    free(myself);
+                    myself = 0;
                 }
             }
+            fclose(f);
         }
     }
     lua_close(L);
-    return 0;
+    return retcode;
 }
