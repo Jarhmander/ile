@@ -1,5 +1,5 @@
-print 'Welcome!'
-
-for k,v in pairs(_ENV) do
-    print(k,v);
+print(...)
+print(arg)
+for k,v in pairs(arg) do
+  print(k,v);
 end
