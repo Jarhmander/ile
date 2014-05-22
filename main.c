@@ -204,6 +204,13 @@ static int handle_options(int argc, char const *argv[])
     return code;
 }
 
+static int preload_lpeg(lua_State *L)
+{
+    /* Technically, there's two arguments passed, but we don't care about 'em */
+    luaopen_lpeg(L);
+    return 1;
+}
+
 int main(int argc, char const *argv[])
 {
     int retcode;
@@ -216,8 +223,12 @@ int main(int argc, char const *argv[])
     luaL_checkversion(L);
     lua_gc(L, LUA_GCSTOP, 0);   /* stop collector during initialization */
     luaL_openlibs(L);           /* open libraries */
-    luaopen_lpeg(L);
-    lua_setglobal(L, "lpeg");
+
+    lua_getfield(L, LUA_REGISTRYINDEX, "_PRELOAD"); /* package.preload["lpeg"] = preload_lpeg */
+    lua_pushcfunction(L, preload_lpeg);
+    lua_setfield(L, -2, "lpeg");
+    lua_pop(L, 1);
+
     lua_gc(L, LUA_GCRESTART, 0);
     char *myself = 0;
     int myself_size = 0;
@@ -286,7 +297,7 @@ int main(int argc, char const *argv[])
                             {
                                 printf("fatal: could not open '%s'\n", scriptname);
                             }
-                            while (n = fread(buf, 1, sizeof(buf), f))
+                            while ((n = fread(buf, 1, sizeof(buf), f)) != 0)
                             {
                                 fwrite(buf, 1, n, o);
                             }
