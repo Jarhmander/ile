@@ -44,6 +44,8 @@ $(OBJS) : | $(OBJDIR)
 $(OBJDIR):
 	-mkdir -p $(OBJDIR)
 
+$(OBJS) : Makefile
+
 .PHONY: clean
 
 clean: 
