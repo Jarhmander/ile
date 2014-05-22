@@ -42,7 +42,7 @@ static int short_opt(int c, char const *rest, int pos)
     switch (c)
     {
     case 'h':
-        help();
+        helpreq = 1;
         return 0;
     case 'f':
         scriptname = rest;
