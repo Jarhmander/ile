@@ -1,4 +1,5 @@
 ile
 ===
 
-Idependent Lua executable
+Independent Lua executable.
+
