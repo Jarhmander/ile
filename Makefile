@@ -2,12 +2,15 @@
 #
 #
 
+LUADIR :=  lua-5.3.0-alpha/src/
+LPEGDIR:=  lpeg-0.12/
+
 CC      := gcc
 LD      := gcc
 CFLAGS  += -g3 -Wall
 LDFLAGS += -lm
-INCLUDES+= -Ilua-5.3.0-work2/src/ \
-           -Ilpeg-0.12/
+INCLUDES+= -I$(LUADIR) \
+           -I$(LPEGDIR)
 
 #######
 
@@ -19,8 +22,6 @@ LUASRC := lapi.c lcode.c lctype.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c \
 
 LPEGSRC:=   lpcap.c lpcode.c lpprint.c lptree.c lpvm.c 
 
-LUADIR :=  lua-5.3.0-work2/src/
-LPEGDIR:=  lpeg-0.12/
 SRC    :=  $(LUASRC) \
            $(LPEGSRC) \
            main.c
