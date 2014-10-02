@@ -2,7 +2,7 @@
 #
 #
 
-LUADIR :=  lua-5.3.0-alpha/src/
+LUADIR :=  lua/src/
 LPEGDIR:=  lpeg-0.12/
 
 CC      := gcc
